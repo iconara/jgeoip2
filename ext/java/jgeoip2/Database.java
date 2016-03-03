@@ -40,7 +40,7 @@ public class Database extends RubyObject {
   private volatile ByteBuffer masterBuffer;
 
   private Decoder decoder;
-  private RubyObject databaseMetadata;
+  private IRubyObject databaseMetadata;
   private int ipVersion;
   private int ipV4StartNode;
   private int nodeCount;
@@ -128,9 +128,7 @@ public class Database extends RubyObject {
 
     buffer.position(metadataStartIndex);
     RubyHash metadataHash = (RubyHash) new Decoder().decode(ctx, buffer);
-    RubyClass metadataClass = ctx.runtime.getModule("JGeoIP2").getClass("Metadata");
-    databaseMetadata = (RubyObject) metadataClass.allocate();
-    databaseMetadata.callInit(metadataHash, Block.NULL_BLOCK);
+    databaseMetadata = JGeoIP2Library.createInstance(ctx.runtime, "Metadata", metadataHash);
     ipVersion = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newString("ip_version"))).getLongValue();
     nodeCount = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newString("node_count"))).getLongValue();
     recordSize = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newString("record_size"))).getLongValue();
