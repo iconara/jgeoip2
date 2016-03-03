@@ -1,5 +1,7 @@
 # encoding: utf-8
 
+require 'json'
+
 module JGeoIP2
   describe Database do
     let :database do
@@ -8,6 +10,27 @@ module JGeoIP2
 
     let :db_path do
       File.expand_path('../../resources/maxmind-db/test-data/GeoIP2-City-Test.mmdb', __FILE__)
+    end
+
+    let :source_data do
+      JSON.load(File.read(db_path.sub('test-data', 'source-data').sub('.mmdb', '.json')))
+    end
+
+    def normalize_source_record(record)
+      record.merge(record) do |k, v, _|
+        vv = v.dup
+        %w[city country continent].each do |what|
+          if vv[what]
+            vv[what]['geoname_id'] = Integer(vv[what]['geoname_id'])
+          end
+        end
+        if vv['location']
+          vv['location']['latitude'] = Float(vv['location']['latitude'])
+          vv['location']['longitude'] = Float(vv['location']['longitude'])
+        end
+        vv
+      end
+      record
     end
 
     describe '.open' do
@@ -63,8 +86,17 @@ module JGeoIP2
     end
 
     describe '#get' do
-      it 'returns a hash' do
-        expect(database.get('2.125.160.216')).to be_a(Hash)
+      let :record do
+        normalize_source_record(source_data[103])
+      end
+
+      it 'returns the record that corresponds to the specified IP address' do
+        ip = record.keys.first.split('/').first
+        expect(database.get(ip)).to eq(record.values.first)
+      end
+
+      it 'returns nil when no record exists for an IP address' do
+        expect(database.get('1.2.3.4')).to be_nil
       end
 
       context 'when given a malformed IP' do
