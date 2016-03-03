@@ -106,8 +106,10 @@ module JGeoIP2
         expect(database.get('1.2.3.4')).to be_nil
       end
 
-      context 'when given a malformed IP' do
-        it 'raises an error'
+      context 'when given something that is not an IP address' do
+        it 'raises an error' do
+          expect { database.get('hello world') }.to raise_error(ArgumentError, /hello world/i)
+        end
       end
     end
   end
