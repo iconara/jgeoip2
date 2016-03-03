@@ -47,7 +47,7 @@ module JGeoIP2
 
       context 'when given a malformed database' do
         it 'raises an error' do
-          expect { described_class.open(__FILE__) }.to raise_error(ArgumentError, /malformed database: metadata section not found/i)
+          expect { described_class.open(__FILE__) }.to raise_error(MalformedDatabaseError, /metadata section not found/i)
         end
       end
     end

@@ -123,7 +123,7 @@ public class Database extends RubyObject {
     }
 
     if (metadataStartIndex == -1) {
-      throw ctx.runtime.newArgumentError("Malformed database: metadata section not found");
+      throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", "Metadata section not found");
     }
 
     buffer.position(metadataStartIndex);

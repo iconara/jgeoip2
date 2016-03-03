@@ -1,3 +1,4 @@
+require 'jgeoip2/errors'
 require 'jgeoip2/metadata'
 require 'jgeoip2/jgeoip2'
 

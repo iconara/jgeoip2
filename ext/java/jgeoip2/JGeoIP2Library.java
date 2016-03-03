@@ -7,6 +7,7 @@ import org.jruby.RubyObject;
 import org.jruby.runtime.Block;
 import org.jruby.runtime.load.Library;
 import org.jruby.runtime.builtin.IRubyObject;
+import org.jruby.exceptions.RaiseException;
 
 public class JGeoIP2Library implements Library {
   public void load(Ruby runtime, boolean wrap) {
@@ -19,5 +20,10 @@ public class JGeoIP2Library implements Library {
     RubyObject object = (RubyObject) klass.allocate();
     object.callInit(args, Block.NULL_BLOCK);
     return object;
+  }
+
+  static RaiseException createErrorInstance(Ruby runtime, String className, String message) {
+    RubyClass klass = runtime.getModule("JGeoIP2").getClass(className);
+    return runtime.newRaiseException(klass, message);
   }
 }
