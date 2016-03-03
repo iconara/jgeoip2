@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 module JGeoIP2
   describe Database do
     let :database do
@@ -5,7 +7,7 @@ module JGeoIP2
     end
 
     let :db_path do
-      File.expand_path('../../resources/GeoLite2-City.mmdb', __FILE__)
+      File.expand_path('../../resources/maxmind-db/test-data/GeoIP2-City-Test.mmdb', __FILE__)
     end
 
     describe '.open' do
@@ -34,24 +36,24 @@ module JGeoIP2
         end
 
         it 'knows the build time of the database' do
-          expect(database.metadata.build_time).to eq(Time.at(1456985563))
+          expect(database.metadata.build_time).to eq(Time.utc(2016, 2, 19, 16, 51, 56))
         end
 
         it 'knows the database type' do
-          expect(database.metadata.database_type).to eq('GeoLite2-City')
+          expect(database.metadata.database_type).to eq('GeoIP2-City')
         end
 
         it 'knows the database languages' do
-          expect(database.metadata.languages).to contain_exactly('de', 'en', 'es', 'fr', 'ja', 'pt-BR', 'ru', 'zh-CN')
+          expect(database.metadata.languages).to contain_exactly('en', 'zh')
         end
 
         it 'knows the database description' do
-          expect(database.metadata.description).to eq('GeoLite2 City database')
+          expect(database.metadata.description).to eq('GeoIP2 City Test Database (fake GeoIP2 data, for example purposes only)')
         end
 
         it 'knows the database description in multiple languages' do
-          expect(database.metadata.description('en')).to eq('GeoLite2 City database')
-          expect(database.metadata.description('de')).to be_nil # documentation only, GeoLite2 City only has an english description
+          expect(database.metadata.description('en')).to eq('GeoIP2 City Test Database (fake GeoIP2 data, for example purposes only)')
+          expect(database.metadata.description('zh')).to eq("小型数据库")
         end
 
         it 'knows the IP version of the database' do
@@ -62,7 +64,7 @@ module JGeoIP2
 
     describe '#get' do
       it 'returns a hash' do
-        expect(database.get('212.116.72.249')).to be_a(Hash)
+        expect(database.get('2.125.160.216')).to be_a(Hash)
       end
 
       context 'when given a malformed IP' do
