@@ -52,6 +52,13 @@ module JGeoIP2
       end
     end
 
+    describe '#close' do
+      it 'raises an error when #get is called after #close' do
+        database.close
+        expect { database.get('1.1.1.1') }.to raise_error(IOError, /closed/)
+      end
+    end
+
     describe '#metadata' do
       context 'returns an object that' do
         it 'knows the database format version' do

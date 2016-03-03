@@ -37,8 +37,9 @@ public class Database extends RubyObject {
     'M', 'a', 'x', 'M', 'i', 'n', 'd', '.', 'c', 'o', 'm'
   };
 
+  private volatile ByteBuffer masterBuffer;
+
   private Decoder decoder;
-  private ByteBuffer masterBuffer;
   private RubyObject databaseMetadata;
   private int ipVersion;
   private int ipV4StartNode;
@@ -76,12 +77,18 @@ public class Database extends RubyObject {
     return this;
   }
 
+  @JRubyMethod()
+  public IRubyObject close(ThreadContext ctx) {
+    masterBuffer = null;
+    return this;
+  }
+
   private void initializeBuffer(ThreadContext ctx, String path) {
     RandomAccessFile file = null;
     try {
       file = new RandomAccessFile(path, "r");
       FileChannel channel = file.getChannel();
-      this.masterBuffer = channel.map(MapMode.READ_ONLY, 0, channel.size());
+      masterBuffer = channel.map(MapMode.READ_ONLY, 0, channel.size());
     } catch (IOException ioe) {
       throw ctx.runtime.newIOErrorFromException(ioe);
     } finally {
@@ -178,12 +185,17 @@ public class Database extends RubyObject {
 
   @JRubyMethod(required = 1)
   public IRubyObject get(ThreadContext ctx, IRubyObject ip) {
-    try {
-      InetAddress address = InetAddress.getByName(ip.asString().toString());
-      ByteBuffer buffer = masterBuffer.duplicate();
-      return findRecord(ctx, buffer, address);
-    } catch (UnknownHostException uhe) {
-      throw ctx.runtime.newArgumentError(uhe.getMessage());
+    final ByteBuffer mb = masterBuffer;
+    if (mb == null) {
+      throw ctx.runtime.newIOError("Database is closed");
+    } else {
+      try {
+        InetAddress address = InetAddress.getByName(ip.asString().toString());
+        ByteBuffer buffer = mb.duplicate();
+        return findRecord(ctx, buffer, address);
+      } catch (UnknownHostException uhe) {
+        throw ctx.runtime.newArgumentError(uhe.getMessage());
+      }
     }
   }
 
