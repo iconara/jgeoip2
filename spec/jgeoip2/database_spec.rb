@@ -111,6 +111,33 @@ module JGeoIP2
           expect { database.get('hello world') }.to raise_error(ArgumentError, /hello world/i)
         end
       end
+
+      %w[IPv4 IPv6 mixed].each do |ip_version|
+        %w[24 28 32].each do |bit_length|
+          context "when the database is for #{ip_version} IP numbers and the nodes are #{bit_length} bits" do
+            let :db_path do
+              File.expand_path("../../resources/maxmind-db/test-data/MaxMind-DB-test-#{ip_version.downcase}-#{bit_length}.mmdb", __FILE__)
+            end
+
+            unless ip_version == 'IPv6'
+              it 'returns the record that corresponds to the specified IPv4 address' do
+                %w[1.1.1.1 1.1.1.2 1.1.1.4 1.1.1.8].each do |address|
+                  expected_address = ip_version == 'mixed' ? "::#{address}" : address
+                  expect(database.get(address)).to eq({'ip' => expected_address})
+                end
+              end
+            end
+
+            unless ip_version == 'IPv4'
+              it 'returns the record that corresponds to the specified IPv6 address' do
+                %w[::1:ffff:ffff ::2:0:0 ::2:0:40 ::2:0:50 ::2:0:58].each do |address|
+                  expect(database.get(address)).to eq({'ip' => address})
+                end
+              end
+            end
+          end
+        end
+      end
     end
   end
 end
