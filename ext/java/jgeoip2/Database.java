@@ -37,8 +37,7 @@ public class Database extends RubyObject {
     'M', 'a', 'x', 'M', 'i', 'n', 'd', '.', 'c', 'o', 'm'
   };
 
-  private final Decoder decoder;
-
+  private Decoder decoder;
   private ByteBuffer masterBuffer;
   private RubyObject databaseMetadata;
   private int ipVersion;
@@ -50,7 +49,6 @@ public class Database extends RubyObject {
 
   public Database(Ruby runtime, RubyClass type) {
     super(runtime, type);
-    this.decoder = new Decoder();
   }
 
   public static ObjectAllocator allocator() {
@@ -122,7 +120,7 @@ public class Database extends RubyObject {
     }
 
     buffer.position(metadataStartIndex);
-    RubyHash metadataHash = (RubyHash) decoder.decode(ctx, buffer);
+    RubyHash metadataHash = (RubyHash) new Decoder().decode(ctx, buffer);
     RubyClass metadataClass = ctx.runtime.getModule("JGeoIP2").getClass("Metadata");
     databaseMetadata = (RubyObject) metadataClass.allocate();
     databaseMetadata.callInit(metadataHash, Block.NULL_BLOCK);
@@ -131,6 +129,7 @@ public class Database extends RubyObject {
     recordSize = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newString("record_size"))).getLongValue();
     nodeByteSize = recordSize/4;
     searchTreeSize = nodeCount * nodeByteSize;
+    decoder = new Decoder(searchTreeSize + DATA_SECTION_SEPARATOR_SIZE);
     ipV4StartNode = 0;
     if (ipVersion == 6) {
       for (int i = 0; i < 96 && ipV4StartNode < nodeCount; i++) {

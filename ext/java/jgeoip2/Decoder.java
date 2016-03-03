@@ -26,24 +26,36 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 public class Decoder {
+  private final int dataSectionOffset;
+
+  public Decoder() {
+    this(0);
+  }
+
+  public Decoder(int dataSectionOffset) {
+    this.dataSectionOffset = dataSectionOffset;
+  }
+
   public IRubyObject decode(ThreadContext ctx, ByteBuffer buffer) {
     int b = buffer.get() & 0xff;
     int type = b >>> 5;
     int size = b & 0x1f;
-    switch (size) {
-      case 29:
-        size = 29 + readInt(buffer, 1);
-        break;
-      case 30:
-        size = 285 + readInt(buffer, 2);
-        break;
-      case 31:
-        size = 65821 + readInt(buffer, 3);
-        break;
-      default:
-        if (size > 31) {
-          throw ctx.runtime.newArgumentError(String.format("Unexpected size %d at position %d", size, buffer.position()));
-        }
+    if (type != 1) {
+      switch (size) {
+        case 29:
+          size = 29 + readInt(buffer, 1);
+          break;
+        case 30:
+          size = 285 + readInt(buffer, 2);
+          break;
+        case 31:
+          size = 65821 + readInt(buffer, 3);
+          break;
+        default:
+          if (size > 31) {
+            throw ctx.runtime.newArgumentError(String.format("Unexpected size %d at position %d", size, buffer.position()));
+          }
+      }
     }
     switch (type) {
       case 0: return decodeExtended(ctx, buffer, size);
@@ -100,7 +112,7 @@ public class Decoder {
   }
 
   private IRubyObject decodeExtended(ThreadContext ctx, ByteBuffer buffer, int size) {
-    int b = buffer.get();
+    int b = buffer.get() & 0xff;
     int type = b + 7;
     switch (type) {
       case 8: return decodeInt32(ctx, buffer, size);
@@ -115,8 +127,24 @@ public class Decoder {
     }
   }
 
-  private IRubyObject decodePointer(ThreadContext ctx, ByteBuffer buffer, int size) {
-    throw ctx.runtime.newNotImplementedError("Cannot decode pointer");
+  private IRubyObject decodePointer(ThreadContext ctx, ByteBuffer buffer, int sizeAndValue) {
+    int size = 1 + ((sizeAndValue >>> 3) & 0x03);
+    int value = sizeAndValue & 0x07;
+    int offset = readInt(buffer, size);
+    if (size < 4) {
+      offset = value << (8 * size) | offset;
+    }
+    offset += dataSectionOffset;
+    if (size == 2) {
+      offset += (1 << 11);
+    } else if (size == 3) {
+      offset += (1 << 19) + (1 << 11);
+    }
+    int oldPosition = buffer.position();
+    buffer.position(offset);
+    IRubyObject data = decode(ctx, buffer);
+    buffer.position(oldPosition);
+    return data;
   }
 
   private IRubyObject decodeUtf8String(ThreadContext ctx, ByteBuffer buffer, int size) {
