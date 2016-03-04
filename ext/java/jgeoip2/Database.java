@@ -121,15 +121,23 @@ public class Database extends RubyObject {
     ipVersion = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newSymbol("ip_version"))).getLongValue();
     nodeCount = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newSymbol("node_count"))).getLongValue();
     recordSize = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newSymbol("record_size"))).getLongValue();
+    if (recordSize != 24 && recordSize != 28 && recordSize != 32) {
+      throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", String.format("Unsupported record size, expected 24, 28 or 32 but was %d", recordSize));
+    }
     nodeByteSize = recordSize/4;
     searchTreeSize = nodeCount * nodeByteSize;
     decoder = new Decoder(symbolizeKeys, searchTreeSize + DATA_SECTION_SEPARATOR_SIZE);
-    ipV4StartNode = 0;
+    ipV4StartNode = findIpV4StartNode(ctx, buffer);
+  }
+
+  private int findIpV4StartNode(ThreadContext ctx, ByteBuffer buffer) {
+    int startNode = 0;
     if (ipVersion == 6) {
-      for (int i = 0; i < 96 && ipV4StartNode < nodeCount; i++) {
-        ipV4StartNode = readNode(ctx, buffer, ipV4StartNode, 0);
+      for (int i = 0; i < 96 && startNode < nodeCount; i++) {
+        startNode = getNodePointer(buffer, startNode, 0);
       }
     }
+    return startNode;
   }
 
   private int findMetadataStartOffset(ByteBuffer buffer) {
@@ -150,28 +158,26 @@ public class Database extends RubyObject {
     return -1;
   }
 
-  private int readNode(ThreadContext ctx, ByteBuffer buffer, int nodeNumber, int index) {
-    int baseOffset = nodeNumber * nodeByteSize;
-
+  private int getNodePointer(ByteBuffer buffer, int nodeNumber, int pointerIndex) {
+    int nodeOffset = nodeNumber * nodeByteSize;
     switch (recordSize) {
       case 24:
-        buffer.position(baseOffset + index * 3);
+        buffer.position(nodeOffset + pointerIndex * 3);
         return decoder.readInt(buffer, 3);
       case 28:
-        int middle = buffer.get(baseOffset + 3);
-        if (index == 0) {
-          middle = (0xf0 & middle) >>> 4;
+        int topBits = buffer.get(nodeOffset + 3);
+        if (pointerIndex == 0) {
+          topBits = (0xf0 & topBits) >>> 4;
         } else {
-          middle = 0x0f & middle;
+          topBits = 0x0f & topBits;
         }
-        buffer.position(baseOffset + index * 4);
-        return (middle << 24) | decoder.readInt(buffer, 3);
+        buffer.position(nodeOffset + pointerIndex * 4);
+        return (topBits << 24) | decoder.readInt(buffer, 3);
       case 32:
-        buffer.position(baseOffset + index * 4);
+        buffer.position(nodeOffset + pointerIndex * 4);
         return decoder.readInt(buffer, 4);
-      default:
-        throw ctx.runtime.newArgumentError(String.format("Unsupported record size at position %d\n", buffer.position()));
     }
+    return -1;
   }
 
   @JRubyMethod(module = true, required = 1, optional = 1)
@@ -195,42 +201,38 @@ public class Database extends RubyObject {
       try {
         InetAddress address = InetAddress.getByName(ip.asString().toString());
         ByteBuffer buffer = mb.duplicate();
-        return findRecord(ctx, buffer, address);
+        return findAndDecodeRecord(ctx, buffer, address);
       } catch (UnknownHostException uhe) {
         throw ctx.runtime.newArgumentError(uhe.getMessage());
       }
     }
   }
 
-  private IRubyObject findRecord(ThreadContext ctx, ByteBuffer buffer, InetAddress address) {
+  private IRubyObject findAndDecodeRecord(ThreadContext ctx, ByteBuffer buffer, InetAddress address) {
     byte[] rawAddress = address.getAddress();
     int bitLength = rawAddress.length * 8;
-    int record = 0;
+    int node = 0;
     if (ipVersion == 6 && bitLength == 32) {
-      record = ipV4StartNode;
+      node = ipV4StartNode;
     }
     for (int i = 0; i < bitLength; i++) {
-      if (record >= nodeCount) {
+      if (node >= nodeCount) {
         break;
       }
       int b = 0xff & rawAddress[i/8];
       int bit = 1 & (b >> 7 - (i % 8));
-      record = readNode(ctx, buffer, record, bit);
+      node = getNodePointer(buffer, node, bit);
     }
-    if (record == nodeCount) {
+    if (node == nodeCount) {
       return ctx.runtime.getNil();
-    } else if (record > nodeCount) {
-      return resolvePointer(ctx, buffer, record);
+    } else if (node > nodeCount) {
+      int offset = (node - nodeCount) + searchTreeSize;
+      if (offset >= buffer.capacity()) {
+        throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", "Pointer pointing outside of the database");
+      }
+      buffer.position(offset);
+      return decoder.decode(ctx, buffer);
     }
-    throw ctx.runtime.newArgumentError("Unexpectedly found no record");
-  }
-
-  private IRubyObject resolvePointer(ThreadContext ctx, ByteBuffer buffer, int pointer) {
-    int offset = (pointer - nodeCount) + searchTreeSize;
-    if (offset >= buffer.capacity()) {
-      throw ctx.runtime.newArgumentError("Pointer pointing outside of the database");
-    }
-    buffer.position(offset);
-    return decoder.decode(ctx, buffer);
+    throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", "Unexpectedly found no record");
   }
 }
