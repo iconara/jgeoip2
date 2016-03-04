@@ -173,6 +173,16 @@ module JGeoIP2
         end
       end
 
+      context 'when given a database with broken pointers' do
+        let :db_path do
+          File.expand_path("../../resources/maxmind-db/test-data/MaxMind-DB-test-broken-pointers-24.mmdb", __FILE__)
+        end
+
+        it 'raises an error' do
+          expect { database.get('1.1.1.32') }.to raise_error(MalformedDatabaseError)
+        end
+      end
+
       %w[Anonymous-IP City Connection-Type Country Domain Enterprise ISP Precision-City Precision-ISP].each do |db_name|
         context "when given a #{db_name.downcase.gsub('-', ' ')} database" do
           let :db_path do
