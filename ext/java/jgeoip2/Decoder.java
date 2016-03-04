@@ -26,13 +26,15 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 public class Decoder {
+  private final boolean symbolizeKeys;
   private final int dataSectionOffset;
 
-  public Decoder() {
-    this(0);
+  public Decoder(boolean symbolizeKeys) {
+    this(symbolizeKeys, 0);
   }
 
-  public Decoder(int dataSectionOffset) {
+  public Decoder(boolean symbolizeKeys, int dataSectionOffset) {
+    this.symbolizeKeys = symbolizeKeys;
     this.dataSectionOffset = dataSectionOffset;
   }
 
@@ -179,6 +181,9 @@ public class Decoder {
     for (int i = 0; i < size; i++) {
       IRubyObject key = decode(ctx, buffer);
       IRubyObject value = decode(ctx, buffer);
+      if (symbolizeKeys) {
+        key = ctx.runtime.newSymbol(key.asString().toString());
+      }
       hash.fastASet(key, value);
     }
     return hash;

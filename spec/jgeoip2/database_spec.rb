@@ -33,6 +33,17 @@ module JGeoIP2
       record
     end
 
+    def symbolize_keys(v)
+      case v
+      when Hash
+        v.each_with_object({}) { |(k, v), h| h[k.to_sym] = symbolize_keys(v) }
+      when Array
+        v.map { |vv| symbolize_keys(vv) }
+      else
+        v
+      end
+    end
+
     describe '.open' do
       it 'returns a database' do
         expect(described_class.open(db_path)).to be_a(described_class)
@@ -104,6 +115,17 @@ module JGeoIP2
 
       it 'returns nil when no record exists for an IP address' do
         expect(database.get('1.2.3.4')).to be_nil
+      end
+
+      context 'when the :symbolize_keys option is set' do
+        let :database do
+          described_class.open(db_path, symbolize_keys: true)
+        end
+
+        it 'returns the record with all its hash keys as symbols instead of strings' do
+          ip = record.keys.first.split('/').first
+          expect(database.get(ip)).to eq(symbolize_keys(record.values.first))
+        end
       end
 
       context 'when given something that is not an IP address' do

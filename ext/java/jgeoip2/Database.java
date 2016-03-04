@@ -67,13 +67,20 @@ public class Database extends RubyObject {
     return klass;
   }
 
-  @JRubyMethod()
-  public IRubyObject open(ThreadContext ctx, IRubyObject path) {
+  @JRubyMethod(required = 1, optional = 1)
+  public IRubyObject open(ThreadContext ctx, IRubyObject[] args) {
+    IRubyObject path = args[0];
     if (path == null || path.isNil()) {
       throw ctx.runtime.newArgumentError("A path is required to create a Database");
     }
+    boolean symbolizeKeys = false;
+    if (args.length > 1 && args[args.length - 1] instanceof RubyHash) {
+      RubyHash options = (RubyHash) args[args.length - 1];
+      IRubyObject mode = options.fastARef(ctx.runtime.newSymbol("symbolize_keys"));
+      symbolizeKeys = (mode != null) && mode.isTrue();
+    }
     initializeBuffer(ctx, path.asString().toString());
-    initializeMetadata(ctx);
+    initializeMetadata(ctx, symbolizeKeys);
     return this;
   }
 
@@ -102,21 +109,21 @@ public class Database extends RubyObject {
     }
   }
 
-  private void initializeMetadata(ThreadContext ctx) {
+  private void initializeMetadata(ThreadContext ctx, boolean symbolizeKeys) {
     ByteBuffer buffer = masterBuffer.duplicate();
     int metadataStartIndex = findMetadataStartOffset(buffer);
     if (metadataStartIndex == -1) {
       throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", "Metadata section not found");
     }
     buffer.position(metadataStartIndex);
-    RubyHash metadataHash = (RubyHash) new Decoder().decode(ctx, buffer);
+    RubyHash metadataHash = (RubyHash) new Decoder(true).decode(ctx, buffer);
     databaseMetadata = JGeoIP2Library.createInstance(ctx.runtime, "Metadata", metadataHash);
-    ipVersion = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newString("ip_version"))).getLongValue();
-    nodeCount = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newString("node_count"))).getLongValue();
-    recordSize = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newString("record_size"))).getLongValue();
+    ipVersion = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newSymbol("ip_version"))).getLongValue();
+    nodeCount = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newSymbol("node_count"))).getLongValue();
+    recordSize = (int) ((RubyFixnum) metadataHash.fastARef(ctx.runtime.newSymbol("record_size"))).getLongValue();
     nodeByteSize = recordSize/4;
     searchTreeSize = nodeCount * nodeByteSize;
-    decoder = new Decoder(searchTreeSize + DATA_SECTION_SEPARATOR_SIZE);
+    decoder = new Decoder(symbolizeKeys, searchTreeSize + DATA_SECTION_SEPARATOR_SIZE);
     ipV4StartNode = 0;
     if (ipVersion == 6) {
       for (int i = 0; i < 96 && ipV4StartNode < nodeCount; i++) {
@@ -167,13 +174,11 @@ public class Database extends RubyObject {
     }
   }
 
-  @JRubyMethod(module = true, required = 1)
-  public static IRubyObject open(ThreadContext ctx, IRubyObject recv, IRubyObject path) {
-    RubyClass klass = ctx.runtime.getModule("JGeoIP2").getClass("Database");
-    Database instance = (Database) allocator().allocate(ctx.runtime, klass);
-    instance.initialize(ctx);
-    instance.open(ctx, path);
-    return instance;
+  @JRubyMethod(module = true, required = 1, optional = 1)
+  public static IRubyObject open(ThreadContext ctx, IRubyObject recv, IRubyObject[] args) {
+    IRubyObject database = JGeoIP2Library.createInstance(ctx.runtime, "Database", new IRubyObject[] {});
+    database.callMethod(ctx, "open", args);
+    return database;
   }
 
   @JRubyMethod()
