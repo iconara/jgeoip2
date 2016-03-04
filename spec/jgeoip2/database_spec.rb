@@ -165,6 +165,19 @@ module JGeoIP2
         end
       end
 
+      %w[Anonymous-IP City Connection-Type Country Domain Enterprise ISP Precision-City Precision-ISP].each do |db_name|
+        context "when given a #{db_name.downcase.gsub('-', ' ')} database" do
+          let :db_path do
+            File.expand_path("../../resources/maxmind-db/test-data/GeoIP2-#{db_name}-Test.mmdb", __FILE__)
+          end
+
+          it 'returns the record that corresponds to the specified IP address' do
+            ip = record.keys.first.split('/').first
+            expect(database.get(ip)).to eq(record.values.first)
+          end
+        end
+      end
+
       %w[IPv4 IPv6 mixed].each do |ip_version|
         %w[24 28 32].each do |bit_length|
           context "when the database is for #{ip_version} IP numbers and the nodes are #{bit_length} bits" do
