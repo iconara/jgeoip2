@@ -1,6 +1,7 @@
 # encoding: utf-8
 
 require 'json'
+require 'ipaddr'
 
 module JGeoIP2
   describe Database do
@@ -146,6 +147,13 @@ module JGeoIP2
 
       it 'returns nil when no record exists for an IP address' do
         expect(database.get('1.2.3.4')).to be_nil
+      end
+
+      context 'when given an IPAddr instance' do
+        it 'returns the record that corresponds to the specified IP address' do
+          ip = IPAddr.new(record.keys.first.split('/').first)
+          expect(database.get(ip)).to eq(record.values.first)
+        end
       end
 
       context 'when the :symbolize_keys option is set' do
