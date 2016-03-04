@@ -104,28 +104,10 @@ public class Database extends RubyObject {
 
   private void initializeMetadata(ThreadContext ctx) {
     ByteBuffer buffer = masterBuffer.duplicate();
-    int fileSize = buffer.capacity();
-    int metadataStartIndex = -1;
-
-    for (int i = 0; i < fileSize - METADATA_START_MARKER.length + 1; i++) {
-      boolean found = true;
-      for (int j = 0; j < METADATA_START_MARKER.length; j++) {
-        byte b = buffer.get(fileSize - i - j - 1);
-        if (b != METADATA_START_MARKER[METADATA_START_MARKER.length - j - 1]) {
-          found = false;
-          break;
-        }
-      }
-      if (found) {
-        metadataStartIndex = fileSize - i;
-        break;
-      }
-    }
-
+    int metadataStartIndex = findMetadataStartOffset(buffer);
     if (metadataStartIndex == -1) {
       throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", "Metadata section not found");
     }
-
     buffer.position(metadataStartIndex);
     RubyHash metadataHash = (RubyHash) new Decoder().decode(ctx, buffer);
     databaseMetadata = JGeoIP2Library.createInstance(ctx.runtime, "Metadata", metadataHash);
@@ -141,6 +123,24 @@ public class Database extends RubyObject {
         ipV4StartNode = readNode(ctx, buffer, ipV4StartNode, 0);
       }
     }
+  }
+
+  private int findMetadataStartOffset(ByteBuffer buffer) {
+    int fileSize = buffer.capacity();
+    for (int i = 0; i < fileSize - METADATA_START_MARKER.length + 1; i++) {
+      boolean found = true;
+      for (int j = 0; j < METADATA_START_MARKER.length; j++) {
+        byte b = buffer.get(fileSize - i - j - 1);
+        if (b != METADATA_START_MARKER[METADATA_START_MARKER.length - j - 1]) {
+          found = false;
+          break;
+        }
+      }
+      if (found) {
+        return fileSize - i;
+      }
+    }
+    return -1;
   }
 
   private int readNode(ThreadContext ctx, ByteBuffer buffer, int nodeNumber, int index) {
