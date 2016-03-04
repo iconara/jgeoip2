@@ -183,6 +183,40 @@ module JGeoIP2
         end
       end
 
+      context 'when given a database with scalar values' do
+        let :db_path do
+          File.expand_path("../../resources/maxmind-db/test-data/MaxMind-DB-string-value-entries.mmdb", __FILE__)
+        end
+
+        it 'returns the record that corresponds to the specified IP address' do
+          expect(database.get('1.1.1.1')).to eq('1.1.1.1/32')
+        end
+      end
+
+      context 'when given a database with all kinds of data' do
+        let :db_path do
+          File.expand_path("../../resources/maxmind-db/test-data/MaxMind-DB-test-decoder.mmdb", __FILE__)
+        end
+
+        it 'returns the record that corresponds to the specified IP address' do
+          record = database.get('::1.1.1.0')
+          aggregate_failures 'record details' do
+            expect(record['boolean']).to equal(true)
+            expect(record['bytes']).to eq("\x00\x00\x00\x2a".force_encoding(Encoding::BINARY))
+            expect(record['utf8_string']).to eq('unicode! ☯ - ♫')
+            expect(record['array']).to eq([1, 2, 3])
+            expect(record['map']).to eq({'mapX' => {'arrayX' => [7, 8, 9], 'utf8_stringX' => 'hello'}})
+            expect(record['double']).to be_within(0.000000001).of(42.123456)
+            expect(record['float']).to be_within(0.000001).of(1.1)
+            expect(record['int32']).to eq(-268435456)
+            expect(record['uint16']).to eq(100)
+            expect(record['uint32']).to eq(268435456)
+            expect(record['uint64']).to eq(1152921504606846976)
+            expect(record['uint128']).to eq(1329227995784915872903807060280344576)
+          end
+        end
+      end
+
       %w[Anonymous-IP City Connection-Type Country Domain Enterprise ISP Precision-City Precision-ISP].each do |db_name|
         context "when given a #{db_name.downcase.gsub('-', ' ')} database" do
           let :db_path do

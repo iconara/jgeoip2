@@ -12,6 +12,7 @@ import org.jruby.runtime.ThreadContext;
 import org.jruby.util.ByteList;
 
 import org.jcodings.specific.UTF8Encoding;
+import org.jcodings.specific.ASCIIEncoding;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -164,7 +165,10 @@ public class Decoder {
   }
 
   private IRubyObject decodeBytes(ThreadContext ctx, ByteBuffer buffer, int size) {
-    throw ctx.runtime.newNotImplementedError("Cannot decode bytes");
+    byte[] bytes = new byte[size];
+    buffer.get(bytes);
+    ByteList byteList = new ByteList(bytes, ASCIIEncoding.INSTANCE);
+    return ctx.runtime.newString(byteList);
   }
 
   private IRubyObject decodeUInt16(ThreadContext ctx, ByteBuffer buffer, int size) {
@@ -190,7 +194,7 @@ public class Decoder {
   }
 
   private IRubyObject decodeInt32(ThreadContext ctx, ByteBuffer buffer, int size) {
-    throw ctx.runtime.newNotImplementedError("Cannot decode signed 32 bit integer");
+    return ctx.runtime.newFixnum(readInt(buffer, size));
   }
 
   private IRubyObject decodeUInt64(ThreadContext ctx, ByteBuffer buffer, int size) {
@@ -200,7 +204,9 @@ public class Decoder {
   }
 
   private IRubyObject decodeUInt128(ThreadContext ctx, ByteBuffer buffer, int size) {
-    throw ctx.runtime.newNotImplementedError("Cannot decode unsigned 128 bit integer");
+    byte[] bytes = new byte[size];
+    buffer.get(bytes);
+    return RubyBignum.newBignum(ctx.runtime, new BigInteger(1, bytes));
   }
 
   private IRubyObject decodeArray(ThreadContext ctx, ByteBuffer buffer, int size) {
@@ -233,6 +239,6 @@ public class Decoder {
     if (size != 4) {
       throw ctx.runtime.newArgumentError(String.format("Unexpected size of a float field %d (expected 4)", size));
     }
-    throw ctx.runtime.newNotImplementedError("Cannot decode float");
+    return ctx.runtime.newFloat(buffer.getFloat());
   }
 }
