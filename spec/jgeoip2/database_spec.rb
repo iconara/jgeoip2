@@ -13,22 +13,53 @@ module JGeoIP2
     end
 
     let :source_data do
-      JSON.load(File.read(db_path.sub('test-data', 'source-data').sub('.mmdb', '.json')))
+      JSON.load(File.read(db_path.sub('test-data', 'source-data').sub('.mmdb', '.json'))).map { |r| normalize_source_record(r) }
     end
 
     def normalize_source_record(record)
-      record.merge(record) do |k, v, _|
-        vv = v.dup
-        %w[city country continent].each do |what|
-          if vv[what]
-            vv[what]['geoname_id'] = Integer(vv[what]['geoname_id'])
+      record.each_value do |v|
+        %w[city country continent registered_country].each do |p|
+          %w[geoname_id confidence].each do |pp|
+            if v[p] && v[p][pp]
+              v[p][pp] = Integer(v[p][pp])
+            end
           end
         end
-        if vv['location']
-          vv['location']['latitude'] = Float(vv['location']['latitude'])
-          vv['location']['longitude'] = Float(vv['location']['longitude'])
+        if (subdivisions = v['subdivisions'])
+          subdivisions.each do |subdivision|
+            %w[geoname_id confidence].each do |p|
+              if subdivision[p]
+                subdivision[p] = Integer(subdivision[p])
+              end
+            end
+          end
         end
-        vv
+        if (location = v['location'])
+          %w[latitude longitude].each do |p|
+            if location[p]
+              location[p] = Float(location[p])
+            end
+          end
+          %w[accuracy_radius metro_code].each do |p|
+            if location[p]
+              location[p] = Integer(location[p])
+            end
+          end
+        end
+        if (postal = v['postal'])
+          %w[confidence].each do |p|
+            if postal[p]
+              postal[p] = Integer(postal[p])
+            end
+          end
+        end
+        if (traits = v['traits'])
+          %w[autonomous_system_number].each do |p|
+            if traits[p]
+              traits[p] = Integer(traits[p])
+            end
+          end
+        end
       end
       record
     end
@@ -105,7 +136,7 @@ module JGeoIP2
 
     describe '#get' do
       let :record do
-        normalize_source_record(source_data[103])
+        source_data[Integer(source_data.length/2)]
       end
 
       it 'returns the record that corresponds to the specified IP address' do
