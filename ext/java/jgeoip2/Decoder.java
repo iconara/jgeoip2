@@ -56,7 +56,7 @@ public class Decoder {
           break;
         default:
           if (size > 31) {
-            throw ctx.runtime.newArgumentError(String.format("Unexpected size %d at position %d", size, buffer.position()));
+            throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", String.format("Unexpected size %d at position %d", size, buffer.position()));
           }
       }
     }
@@ -69,7 +69,7 @@ public class Decoder {
       case 5: return decodeUInt16(ctx, buffer, size);
       case 6: return decodeUInt32(ctx, buffer, size);
       case 7: return decodeMap(ctx, buffer, size);
-      default: throw ctx.runtime.newArgumentError(String.format("Unsupported type %d at position %d", type, buffer.position()));
+      default: throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", String.format("Unsupported type %d at position %d", type, buffer.position()));
     }
   }
 
@@ -126,7 +126,7 @@ public class Decoder {
       case 13: return decodeEndMarker(ctx, buffer, size);
       case 14: return decodeBoolean(ctx, buffer, size);
       case 15: return decodeFloat(ctx, buffer, size);
-      default: throw ctx.runtime.newArgumentError(String.format("Unsupported extended type %d at position %d", type, buffer.position()));
+      default: throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", String.format("Unsupported extended type %d at position %d", type, buffer.position()));
     }
   }
 
@@ -159,7 +159,7 @@ public class Decoder {
 
   private IRubyObject decodeDouble(ThreadContext ctx, ByteBuffer buffer, int size) {
     if (size != 8) {
-      throw ctx.runtime.newArgumentError(String.format("Unexpected size of a double field %d (expected 8)", size));
+      throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", String.format("Unexpected size of a double field %d (expected 8)", size));
     }
     return ctx.runtime.newFloat(buffer.getDouble());
   }
@@ -231,13 +231,13 @@ public class Decoder {
     } else if (size == 1) {
       return ctx.runtime.getTrue();
     } else {
-      throw ctx.runtime.newArgumentError(String.format("Unexpected value for boolean %d", size));
+      throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", String.format("Unexpected value for boolean %d", size));
     }
   }
 
   private IRubyObject decodeFloat(ThreadContext ctx, ByteBuffer buffer, int size) {
     if (size != 4) {
-      throw ctx.runtime.newArgumentError(String.format("Unexpected size of a float field %d (expected 4)", size));
+      throw JGeoIP2Library.createErrorInstance(ctx.runtime, "MalformedDatabaseError", String.format("Unexpected size of a float field %d (expected 4)", size));
     }
     return ctx.runtime.newFloat(buffer.getFloat());
   }
